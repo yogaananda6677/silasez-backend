@@ -48,6 +48,8 @@ class MessageType(str, Enum):
 
     IMAGE="image"
 
+    VIDEO="video"
+
     FILE="file"
 
     LOCATION="location"

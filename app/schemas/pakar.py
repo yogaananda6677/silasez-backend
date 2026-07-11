@@ -53,6 +53,8 @@ class PakarPeternakanSummaryResponse(BaseModel):
     jumlah_silo: int
     kondisi: str
     pembacaan_terakhir_at: datetime | None
+    pembacaan_terbaru: LatestSensorReadingResponse | None
+    chat_room_id: UUID
 
 
 class PakarPeternakanDetailResponse(PakarPeternakanSummaryResponse):
@@ -68,4 +70,3 @@ class PakarPeternakanHistoryResponse(BaseModel):
     peternakan_id: UUID
     sensor_logs: list[SensorHistoryResponse]
     fermentation_cycles: list[FermentationCycleResponse]
-

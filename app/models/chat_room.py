@@ -76,3 +76,15 @@ class ChatRoom(
         supaya frontend bisa nampilin foto profil pakar di daftar chat,
         bukan cuma ikon statis. Room AI (`pakar` None) otomatis null."""
         return self.pakar.photo_url if self.pakar else None
+
+    @property
+    def peternak_photo_url(self) -> str | None:
+        return self.peternak.photo_url if self.peternak else None
+
+    @property
+    def peternak_name(self) -> str | None:
+        return self.peternak.fullname if self.peternak else None
+
+    @property
+    def pakar_name(self) -> str | None:
+        return self.pakar.fullname if self.pakar else None

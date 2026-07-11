@@ -9,7 +9,11 @@ from app.core.enums import UserRole
 
 from app.models.user import User
 
-from app.schemas.admin import ApproveDeviceRequest, CreatePakarRequest
+from app.schemas.admin import (
+    AdminOverviewResponse,
+    ApproveDeviceRequest,
+    CreatePakarRequest,
+)
 from app.schemas.sensor import SensorResponse
 from app.schemas.user import UserResponse
 
@@ -51,6 +55,15 @@ def create_pakar(
             status_code=400,
             detail=str(e),
         )
+
+
+@router.get("/overview", response_model=AdminOverviewResponse)
+def get_admin_overview(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    return AdminService(db).get_overview()
 
 
 @router.get(

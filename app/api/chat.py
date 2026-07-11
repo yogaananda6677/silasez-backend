@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -126,19 +126,29 @@ async def send_message(
             current_user,
             data.message,
         )
-
     except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=str(e),
-        )
-
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except PermissionError as e:
-        raise HTTPException(
-            status_code=403,
-            detail=str(e),
-        )
+        raise HTTPException(status_code=403, detail=str(e)) from e
 
+
+@router.post(
+    "/{room_id}/attachments",
+    response_model=ChatMessageResponse,
+    status_code=201,
+)
+async def send_attachment(
+    room_id: UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        return await ChatService(db).send_attachment(room_id, current_user, file)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
 
 @router.patch("/{room_id}/close")
 def close_room(

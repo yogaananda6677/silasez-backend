@@ -50,7 +50,7 @@ class PakarService:
             .order_by(Peternakan.created_at.desc())
             .all()
         )
-        return [self._build_peternakan(farm, include_silos=False) for farm in farms]
+        return [self._build_peternakan(user, farm, include_silos=False) for farm in farms]
 
     def get_peternakan(self, user: User, peternakan_id: UUID) -> dict:
         self.require_pakar(user)
@@ -60,7 +60,7 @@ class PakarService:
             raise ValueError("Peternakan tidak ditemukan.")
         self._assert_can_access(user, farm)
 
-        return self._build_peternakan(farm, include_silos=True)
+        return self._build_peternakan(user, farm, include_silos=True)
 
     def get_history(
         self,
@@ -133,7 +133,12 @@ class PakarService:
                 "Anda tidak memiliki hubungan konsultasi dengan peternakan ini."
             )
 
-    def _build_peternakan(self, farm: Peternakan, include_silos: bool) -> dict:
+    def _build_peternakan(
+        self,
+        user: User,
+        farm: Peternakan,
+        include_silos: bool,
+    ) -> dict:
         silos = [silo for silo in farm.silos if not silo.is_deleted]
         silo_conditions = [self._build_silo_condition(silo) for silo in silos]
 
@@ -151,6 +156,22 @@ class PakarService:
         else:
             condition = "belum_ada_data"
 
+        latest_readings = [
+            item["pembacaan_terbaru"]
+            for item in silo_conditions
+            if item["pembacaan_terbaru"] is not None
+        ]
+        latest_reading = max(
+            latest_readings,
+            key=lambda item: item["recorded_at"],
+            default=None,
+        )
+        room = chat_room_crud.get_pakar_room(
+            self.db,
+            peternak_id=farm.user_id,
+            pakar_id=user.id,
+        )
+
         result = {
             "id": farm.id,
             "nama": farm.nama,
@@ -163,6 +184,8 @@ class PakarService:
             "jumlah_silo": len(silos),
             "kondisi": condition,
             "pembacaan_terakhir_at": max(latest_times) if latest_times else None,
+            "pembacaan_terbaru": latest_reading,
+            "chat_room_id": room.id,
         }
         if include_silos:
             result["silos"] = silo_conditions
