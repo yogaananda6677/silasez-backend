@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.enums import UserRole
 from app.crud.user import create_user
 from app.models.user import User
@@ -68,7 +69,12 @@ class AuthService:
             {
                 "sub": str(user.id),
                 "role": user.role.value,
-            }
+            },
+            expires_minutes=(
+                settings.REMEMBER_LOGIN_EXPIRE_DAYS * 24 * 60
+                if data.remember_me
+                else None
+            ),
         )
 
         return {

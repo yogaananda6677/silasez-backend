@@ -8,7 +8,7 @@ from app.core.enums import MessageType
 
 
 class SendMessageRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=2000)
+    message: str = Field(min_length=1, max_length=8000)
 
 
 class ChatMessageResponse(BaseModel):

@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REMEMBER_LOGIN_EXPIRE_DAYS: int = 30
 
     MQTT_HOST: str
     MQTT_PORT: int
@@ -18,6 +19,7 @@ class Settings(BaseSettings):
 
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MAX_OUTPUT_TOKENS: int = 4096
 
     model_config = SettingsConfigDict(
         env_file=".env",

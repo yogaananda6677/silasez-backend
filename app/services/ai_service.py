@@ -11,6 +11,7 @@ class AIServiceError(Exception):
 
 
 class AIService:
+    _MAX_CONTINUATIONS = 2
     _SYSTEM_PROMPT = (
         "Kamu adalah SilaseZ AI, asisten berbahasa Indonesia untuk peternak. "
         "Bantu pengguna memahami fermentasi silase, kondisi sensor, pakan, "
@@ -59,43 +60,71 @@ class AIService:
                 }
             )
 
+        contents = [{"role": "user", "parts": user_parts}]
         payload = {
             "system_instruction": {
                 "parts": [{"text": self._SYSTEM_PROMPT}],
             },
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": user_parts,
-                }
-            ],
+            "contents": contents,
             "generationConfig": {
                 "temperature": 0.4,
-                "maxOutputTokens": 1024,
+                "maxOutputTokens": settings.GEMINI_MAX_OUTPUT_TOKENS,
             },
         }
 
+        answer_parts: list[str] = []
         try:
-            async with httpx.AsyncClient(timeout=45) as client:
-                response = await client.post(
-                    url,
-                    params={"key": settings.GEMINI_API_KEY},
-                    json=payload,
-                )
-                response.raise_for_status()
+            async with httpx.AsyncClient(timeout=90) as client:
+                for attempt in range(self._MAX_CONTINUATIONS + 1):
+                    payload["contents"] = contents
+                    response = await client.post(
+                        url,
+                        params={"key": settings.GEMINI_API_KEY},
+                        json=payload,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    try:
+                        candidate = data["candidates"][0]
+                        parts = candidate["content"]["parts"]
+                        generated = "".join(
+                            part.get("text", "") for part in parts
+                        ).strip()
+                        finish_reason = candidate.get("finishReason", "STOP")
+                    except (KeyError, IndexError, TypeError) as exc:
+                        raise AIServiceError(
+                            "Respons Gemini tidak dapat dibaca."
+                        ) from exc
+
+                    if generated:
+                        answer_parts.append(generated)
+                    if finish_reason != "MAX_TOKENS" or attempt >= self._MAX_CONTINUATIONS:
+                        break
+
+                    contents.extend(
+                        [
+                            {"role": "model", "parts": parts},
+                            {
+                                "role": "user",
+                                "parts": [{
+                                    "text": (
+                                        "Lanjutkan tepat dari bagian terakhir. "
+                                        "Jangan ulangi bagian yang sudah ditulis."
+                                    )
+                                }],
+                            },
+                        ]
+                    )
         except httpx.HTTPStatusError as exc:
-            detail = exc.response.json().get("error", {}).get("message")
+            try:
+                detail = exc.response.json().get("error", {}).get("message")
+            except ValueError:
+                detail = None
             raise AIServiceError(detail or "Gemini menolak permintaan.") from exc
         except httpx.HTTPError as exc:
             raise AIServiceError("Tidak dapat terhubung ke Gemini.") from exc
 
-        data = response.json()
-        try:
-            parts = data["candidates"][0]["content"]["parts"]
-            text = "".join(part.get("text", "") for part in parts).strip()
-        except (KeyError, IndexError, TypeError) as exc:
-            raise AIServiceError("Respons Gemini tidak dapat dibaca.") from exc
-
+        text = "\n\n".join(answer_parts).strip()
         if not text:
             raise AIServiceError("Gemini tidak menghasilkan jawaban.")
         return text

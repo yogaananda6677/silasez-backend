@@ -212,7 +212,9 @@ class ChatService:
             # Kirim jawaban final bertahap sebagai delta kata. Ini bukan
             # chain-of-thought model; hanya animasi streaming jawaban yang
             # aman untuk ditampilkan kepada pengguna.
-            for chunk in re.findall(r"\S+\s*", reply):
+            chunks = re.findall(r"\S+\s*", reply)
+            chunk_delay = min(0.045, max(0.008, 12 / max(len(chunks), 1)))
+            for chunk in chunks:
                 await manager.broadcast(
                     str(room.id),
                     {
@@ -221,7 +223,7 @@ class ChatService:
                         "delta": chunk,
                     },
                 )
-                await asyncio.sleep(0.045)
+                await asyncio.sleep(chunk_delay)
         except AIServiceError as exc:
             await manager.broadcast(
                 str(room.id),
