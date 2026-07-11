@@ -1,0 +1,31 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+docker/mosquitto/config/passwd
+
+# User-generated data
+uploads/*
+!uploads/.gitkeep
+docker/mosquitto/data/
+docker/mosquitto/log/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# IDE and operating system
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Logs and local databases
+*.log
+*.sqlite3

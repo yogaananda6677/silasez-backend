@@ -1,0 +1,25 @@
+# fastapi
+# uvicorn[standard]
+# sqlalchemy
+# psycopg2-binary
+# alembic
+# python-dotenv
+# pydantic-settings
+# python-jose[cryptography]
+# passlib[bcrypt]
+# paho-mqtt
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+alembic
+python-dotenv
+pydantic-settings
+passlib[bcrypt]
+bcrypt==4.0.1
+python-jose[cryptography]
+paho-mqtt
+email-validator
+python-multipart
+httpx
+openai

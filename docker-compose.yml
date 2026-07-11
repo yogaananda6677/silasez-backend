@@ -1,0 +1,45 @@
+  services:
+
+    postgres:
+      image: postgres:17-alpine
+      container_name: silasez_db
+      restart: unless-stopped
+      environment:
+        POSTGRES_DB: silasez
+        POSTGRES_USER: silasez
+        POSTGRES_PASSWORD: silasez123
+      ports:
+        - "5433:5432"
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+
+    mosquitto:
+      image: eclipse-mosquitto:2
+      container_name: silasez_mqtt
+      restart: unless-stopped
+      ports:
+        - "1883:1883"
+        - "9001:9001"
+      volumes:
+        - ./docker/mosquitto/config:/mosquitto/config
+        - ./docker/mosquitto/data:/mosquitto/data
+        - ./docker/mosquitto/log:/mosquitto/log
+
+    backend:
+      build:
+        context: .
+        dockerfile: Dockerfile
+      container_name: silasez_api
+      restart: unless-stopped
+      depends_on:
+        - postgres
+        - mosquitto
+      env_file:
+        - .env
+      ports:
+        - "8002:8000"
+      volumes:
+        - .:/app
+
+  volumes:
+    postgres_data:
