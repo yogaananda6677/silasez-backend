@@ -21,6 +21,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     phone: str | None
     role: str
+    photo_url: str | None = None
 
     model_config = {
         "from_attributes": True
@@ -30,4 +31,3 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
-

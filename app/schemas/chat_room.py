@@ -30,6 +30,12 @@ class ChatRoomResponse(BaseModel):
     # di model `ChatRoom` (lihat `app/models/chat_room.py`), yang
     # membaca `User.photo_url` lewat relasi `pakar`.
     pakar_photo_url: str | None = None
+    peternak_photo_url: str | None = None
+    peternak_name: str | None = None
+    pakar_name: str | None = None
+    unread_count: int = 0
+    last_message_sender_id: UUID | None = None
+    last_message_is_read: bool | None = None
 
     class Config:
         from_attributes = True

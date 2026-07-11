@@ -16,13 +16,16 @@ class CRUDChatMessage:
         room_id: UUID,
         sender_id: UUID,
         message: str,
+        message_type: MessageType = MessageType.TEXT,
+        attachment_url: str | None = None,
     ) -> ChatMessage:
 
         chat = ChatMessage(
             room_id=room_id,
             sender_id=sender_id,
             message=message,
-            message_type=MessageType.TEXT,
+            message_type=message_type,
+            attachment_url=attachment_url,
         )
 
         db.add(chat)

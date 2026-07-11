@@ -2,6 +2,8 @@
 
 Backend SilaseZ adalah layanan API dan IoT untuk memantau proses fermentasi silase. Aplikasi dibangun dengan FastAPI, PostgreSQL, SQLAlchemy/Alembic, MQTT, dan WebSocket.
 
+Panduan deployment produksi tersedia di [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## Fitur utama
 
 - Registrasi dan autentikasi JWT untuk peternak, pakar, dan admin.

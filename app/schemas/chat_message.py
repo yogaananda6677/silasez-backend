@@ -2,13 +2,13 @@ from datetime import datetime
 from uuid import UUID
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.enums import MessageType
 
 
 class SendMessageRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=2000)
 
 
 class ChatMessageResponse(BaseModel):

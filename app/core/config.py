@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     MQTT_USERNAME: str
     MQTT_PASSWORD: str
 
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore"

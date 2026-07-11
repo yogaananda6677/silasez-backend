@@ -1,6 +1,9 @@
 from uuid import UUID
+import asyncio
+import re
 
 from sqlalchemy.orm import Session
+from fastapi import UploadFile
 
 from app.core.enums import UserRole
 from app.crud.chat_message import chat_message
@@ -8,11 +11,11 @@ from app.crud.chat_room import chat_room
 from app.models.chat_message import ChatMessage
 from app.models.chat_room import ChatRoom
 from app.models.user import User
-from app.schemas.chat_message import SendMessageRequest
 from app.schemas.chat_room import CreateChatRoomRequest
-from app.models.user import User
 from app.websocket.manager import manager
-from app.services.ai_service import AIService
+from app.services.ai_service import AIService, AIServiceError
+from app.services.ai_context_service import AIContextService
+from app.services.chat_attachment_service import ChatAttachmentService
 
 class ChatService:
 
@@ -42,15 +45,48 @@ class ChatService:
                     is_ai=True,
                 )
 
-            return chat_room.get_by_peternak(
+            rooms = chat_room.get_by_peternak(
                 self.db,
                 current_user.id,
             )
+            return [self._serialize_room(room, current_user) for room in rooms]
 
-        return chat_room.get_by_pakar(
+        rooms = chat_room.get_by_pakar(
             self.db,
             current_user.id,
         )
+        return [self._serialize_room(room, current_user) for room in rooms]
+
+    def _serialize_room(self, room: ChatRoom, current_user: User) -> dict:
+        last_message = chat_message.get_last_message(self.db, room.id)
+        return {
+            "id": room.id,
+            "peternak_id": room.peternak_id,
+            "pakar_id": room.pakar_id,
+            "title": room.title,
+            "is_ai": room.is_ai,
+            "is_closed": room.is_closed,
+            "last_message": last_message.message if last_message else room.last_message,
+            "last_message_at": (
+                last_message.created_at if last_message else room.last_message_at
+            ),
+            "created_at": room.created_at,
+            "pakar_photo_url": room.pakar_photo_url,
+            "peternak_photo_url": room.peternak_photo_url,
+            "peternak_name": room.peternak_name,
+            "pakar_name": room.pakar_name,
+            "unread_count": chat_message.count_unread(
+                self.db,
+                room.id,
+                current_user.id,
+            ),
+            "last_message_sender_id": (
+                last_message.sender_id if last_message else None
+            ),
+            "last_message_is_read": (
+                last_message.is_read if last_message else None
+            ),
+        }
 
     def create_pakar_room(
         self,
@@ -145,7 +181,62 @@ class ChatService:
             },
         )
 
-        reply = await self.ai.chat(message)
+        return await self._generate_ai_reply(
+            room=room,
+            current_user=current_user,
+            prompt=message,
+        )
+
+    async def _generate_ai_reply(
+        self,
+        room: ChatRoom,
+        current_user: User,
+        prompt: str,
+        image_contents: bytes | None = None,
+        image_mime_type: str | None = None,
+    ) -> ChatMessage:
+        await manager.broadcast(
+            str(room.id),
+            {"type": "typing_start", "room_id": str(room.id)},
+        )
+
+        try:
+            ai_context = AIContextService(self.db).build_for_peternak(current_user)
+            reply = await self.ai.chat(
+                prompt,
+                ai_context,
+                image_contents=image_contents,
+                image_mime_type=image_mime_type,
+            )
+
+            # Kirim jawaban final bertahap sebagai delta kata. Ini bukan
+            # chain-of-thought model; hanya animasi streaming jawaban yang
+            # aman untuk ditampilkan kepada pengguna.
+            for chunk in re.findall(r"\S+\s*", reply):
+                await manager.broadcast(
+                    str(room.id),
+                    {
+                        "type": "ai_chunk",
+                        "room_id": str(room.id),
+                        "delta": chunk,
+                    },
+                )
+                await asyncio.sleep(0.045)
+        except AIServiceError as exc:
+            await manager.broadcast(
+                str(room.id),
+                {
+                    "type": "typing_error",
+                    "room_id": str(room.id),
+                    "message": str(exc),
+                },
+            )
+            raise ValueError(str(exc)) from exc
+        finally:
+            await manager.broadcast(
+                str(room.id),
+                {"type": "typing_end", "room_id": str(room.id)},
+            )
 
         ai_message = chat_message.create(
             self.db,
@@ -171,6 +262,62 @@ class ChatService:
         )
 
         return ai_message
+
+    async def send_attachment(
+        self,
+        room_id: UUID,
+        current_user: User,
+        file: UploadFile,
+    ) -> ChatMessage:
+        room = chat_room.get(self.db, room_id)
+        if room is None:
+            raise ValueError("Room tidak ditemukan")
+        self._validate_room_access(room, current_user)
+        if room.is_closed:
+            raise ValueError("Room sudah ditutup")
+        if room.is_ai and not (file.content_type or "").startswith("image/"):
+            raise ValueError("AI Assistant saat ini hanya menerima lampiran foto.")
+
+        attachment = await ChatAttachmentService().store(str(room.id), file)
+        if room.is_ai and attachment.message_type.value != "image":
+            raise ValueError("AI Assistant saat ini hanya menerima lampiran foto.")
+
+        message = chat_message.create(
+            self.db,
+            room_id=room.id,
+            sender_id=current_user.id,
+            message=attachment.display_name,
+            message_type=attachment.message_type,
+            attachment_url=attachment.url,
+        )
+        chat_room.update_last_message(
+            self.db,
+            room,
+            f"Mengirim {attachment.message_type.value}",
+        )
+        await manager.broadcast(
+            str(room.id),
+            {
+                "type": "new_message",
+                "message": message.message,
+                "sender_id": str(message.sender_id),
+                "room_id": str(room.id),
+            },
+        )
+
+        if room.is_ai:
+            return await self._generate_ai_reply(
+                room=room,
+                current_user=current_user,
+                prompt=(
+                    "Analisis foto ini dalam konteks data SilaseZ milik saya. "
+                    "Jelaskan temuan yang terlihat, keterbatasan analisis foto, "
+                    "dan langkah praktis yang aman."
+                ),
+                image_contents=attachment.contents,
+                image_mime_type=attachment.content_type,
+            )
+        return message
     
 
     async def send_message(
@@ -179,9 +326,6 @@ class ChatService:
         current_user: User,
         message: str,
     ):
-        print("========== MASUK AI ==========")
-        print(room_id)
-        print(message)
         room = chat_room.get(
             self.db,
             room_id,
@@ -330,5 +474,3 @@ class ChatService:
             return
 
         raise PermissionError("Role tidak diizinkan")
-
-

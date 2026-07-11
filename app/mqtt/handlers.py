@@ -1,7 +1,9 @@
 from app.core.database import SessionLocal
-from app.core.enums import SensorStatus
+from app.core.enums import NotificationType, SensorStatus, UserRole
 from app.crud import sensor as sensor_crud
 from app.crud import sensor_log as sensor_log_crud
+from app.crud import notification as notification_crud
+from app.models.user import User
 from app.websocket.manager import manager
 
 
@@ -28,6 +30,19 @@ def handle_message(
         # menunggu admin assign ke silo & approve lewat aplikasi.
         if sensor is None:
             sensor = sensor_crud.register_pending_device(db, device_id)
+            admins = db.query(User).filter(
+                User.role == UserRole.ADMIN,
+                User.is_active.is_(True),
+                User.is_deleted.is_(False),
+            ).all()
+            for admin in admins:
+                notification_crud.create(
+                    db,
+                    user_id=admin.id,
+                    title="Perangkat baru menunggu approval",
+                    message=f"Device {device_id} terdeteksi dan belum terhubung ke silo.",
+                    notification_type=NotificationType.INFO,
+                )
             print(f"MQTT: Device baru terdeteksi, didaftarkan sebagai PENDING -> {device_id}")
 
         if jenis == "sensor":
