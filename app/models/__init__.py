@@ -8,6 +8,7 @@ from app.models.fermentation_cycle import FermentationCycle
 from app.models.chat_room import ChatRoom
 from app.models.chat_message import ChatMessage
 from app.models.notification import Notification
+from app.models.device_token import DeviceToken
 
 __all__ = [
     "User",
@@ -20,4 +21,5 @@ __all__ = [
     "ChatRoom",
     "ChatMessage",
     "Notification",
+    "DeviceToken",
 ]

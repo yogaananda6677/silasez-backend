@@ -14,6 +14,7 @@ from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 from app.core.enums import NotificationType
+from app.core.enums import NotificationCategory
 from app.models.mixins import UUIDMixin
 from app.models.mixins import TimestampMixin
 
@@ -49,6 +50,10 @@ class Notification(
     is_read: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
+    )
+
+    category: Mapped[str] = mapped_column(
+        String(30), default=NotificationCategory.SYSTEM.value, nullable=False
     )
 
     user = relationship(

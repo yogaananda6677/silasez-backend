@@ -23,7 +23,9 @@ def create(
         started_by=started_by,
         start_date=start_date,
         planned_duration_days=planned_duration_days,
-        end_date=start_date + timedelta(days=planned_duration_days),
+        # Hari pertama ikut dihitung, jadi periode 21 hari berakhir pada
+        # start_date + 20 hari (bukan masuk hari ke-22).
+        end_date=start_date + timedelta(days=planned_duration_days - 1),
         catatan=catatan,
         status=FermentationStatus.RUNNING,
     )
@@ -111,4 +113,13 @@ def finish(
     db.commit()
     db.refresh(cycle)
 
+    return cycle
+
+
+def finish_expired(db: Session, cycle: FermentationCycle) -> FermentationCycle:
+    """Tutup otomatis periode fermentasi tepat di akhir hari ke-21."""
+    cycle.status = FermentationStatus.COMPLETED
+    cycle.actual_end_date = cycle.end_date
+    db.commit()
+    db.refresh(cycle)
     return cycle

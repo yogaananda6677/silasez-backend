@@ -9,21 +9,25 @@ def create_log(
     db: Session,
     sensor_id: UUID,
     temperature: float,
-    humidity: float,
+    water_content: float,
     ph: float,
-    methane: float,
-    ammonia: float,
-    co2: float,
+    delta_gas: float,
+    fermentation_day: int | None = None,
+    phase: str = "monitoring",
+    classification: str | None = None,
 ) -> SensorLog:
 
     log = SensorLog(
         sensor_id=sensor_id,
         temperature=temperature,
-        humidity=humidity,
+        humidity=water_content,
         ph=ph,
-        methane=methane,
-        ammonia=ammonia,
-        co2=co2,
+        methane=delta_gas,
+        ammonia=0,
+        co2=0,
+        fermentation_day=fermentation_day,
+        phase=phase,
+        classification=classification,
     )
 
     db.add(log)
@@ -31,3 +35,12 @@ def create_log(
     db.refresh(log)
 
     return log
+
+
+def get_latest(db: Session, sensor_id: UUID) -> SensorLog | None:
+    return (
+        db.query(SensorLog)
+        .filter(SensorLog.sensor_id == sensor_id)
+        .order_by(SensorLog.created_at.desc())
+        .first()
+    )

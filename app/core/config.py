@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-2.5-flash"
     GEMINI_MAX_OUTPUT_TOKENS: int = 4096
 
+    FIREBASE_CREDENTIALS_PATH: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore"

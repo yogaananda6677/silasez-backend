@@ -93,11 +93,12 @@ class SiloService:
             "sensor_nama": sensor.nama,
             "silo_id": silo.id,
             "temperature": log.temperature,
-            "humidity": log.humidity,
+            "water_content": log.water_content,
             "ph": log.ph,
-            "methane": log.methane,
-            "ammonia": log.ammonia,
-            "co2": log.co2,
+            "delta_gas": log.delta_gas,
+            "fermentation_day": log.fermentation_day,
+            "phase": log.phase,
+            "classification": log.classification,
             "recorded_at": log.created_at,
         }
 

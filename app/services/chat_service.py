@@ -5,7 +5,8 @@ import re
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
 
-from app.core.enums import UserRole
+from app.core.enums import NotificationCategory, NotificationType, UserRole
+from app.crud import notification as notification_crud
 from app.crud.chat_message import chat_message
 from app.crud.chat_room import chat_room
 from app.models.chat_message import ChatMessage
@@ -22,6 +23,28 @@ class ChatService:
     def __init__(self, db: Session):
         self.db = db
         self.ai = AIService()
+
+    def _notify_chat_recipient(
+        self,
+        room: ChatRoom,
+        sender: User,
+        preview: str,
+    ) -> None:
+        if room.is_ai:
+            return
+        recipient_id = (
+            room.pakar_id if sender.id == room.peternak_id else room.peternak_id
+        )
+        if recipient_id is None:
+            return
+        notification_crud.create(
+            self.db,
+            user_id=recipient_id,
+            title=f"Pesan baru dari {sender.fullname}",
+            message=preview[:180],
+            notification_type=NotificationType.INFO,
+            category=NotificationCategory.CHAT,
+        )
 
     def list_rooms(
         self,
@@ -292,6 +315,11 @@ class ChatService:
             message_type=attachment.message_type,
             attachment_url=attachment.url,
         )
+        self._notify_chat_recipient(
+            room,
+            current_user,
+            f"Mengirim {attachment.message_type.value}: {attachment.display_name}",
+        )
         chat_room.update_last_message(
             self.db,
             room,
@@ -357,6 +385,8 @@ class ChatService:
             sender_id=current_user.id,
             message=message,
         )
+
+        self._notify_chat_recipient(room, current_user, message)
 
         # from app.websocket.manager import manager
 

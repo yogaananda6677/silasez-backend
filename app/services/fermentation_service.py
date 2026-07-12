@@ -65,7 +65,7 @@ class FermentationService:
             silo_id=silo_id,
             started_by=user.id,
             start_date=data.start_date or date.today(),
-            planned_duration_days=data.planned_duration_days,
+            planned_duration_days=21,
             catatan=data.catatan,
         )
 

@@ -4,7 +4,7 @@ from sqlalchemy import nulls_last
 from sqlalchemy.orm import Session
 
 from app.models.chat_room import ChatRoom
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class CRUDChatRoom:
@@ -131,7 +131,7 @@ class CRUDChatRoom:
 
         room.last_message = message
 
-        room.last_message_at = datetime.utcnow()
+        room.last_message_at = datetime.now(timezone.utc)
 
         db.commit()
 

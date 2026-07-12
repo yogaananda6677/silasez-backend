@@ -37,6 +37,13 @@ class NotificationType(str, Enum):
     DANGER = "danger"
 
 
+class NotificationCategory(str, Enum):
+    FERMENTATION = "fermentation"
+    CHAT = "chat"
+    DEVICE = "device"
+    SYSTEM = "system"
+
+
 class ChatSender(str, Enum):
     USER = "user"
     PAKAR = "pakar"

@@ -212,6 +212,11 @@ class PakarService:
             silo.status != SiloStatus.ACTIVE
             or any(status in (SensorStatus.OFFLINE, SensorStatus.ERROR) for status in sensor_statuses)
             or (active_cycle is not None and active_cycle.is_overdue)
+            or (
+                latest is not None
+                and latest[0].classification
+                in ("Fermentasi perlu diwaspadai", "Fermentasi Gagal")
+            )
         )
         if needs_attention:
             condition = "perlu_perhatian"
@@ -250,11 +255,12 @@ class PakarService:
             "device_id": sensor.device_id,
             "sensor_nama": sensor.nama,
             "temperature": log.temperature,
-            "humidity": log.humidity,
+            "water_content": log.water_content,
             "ph": log.ph,
-            "methane": log.methane,
-            "ammonia": log.ammonia,
-            "co2": log.co2,
+            "delta_gas": log.delta_gas,
+            "fermentation_day": log.fermentation_day,
+            "phase": log.phase,
+            "classification": log.classification,
             "recorded_at": log.created_at,
         }
         if silo is not None:

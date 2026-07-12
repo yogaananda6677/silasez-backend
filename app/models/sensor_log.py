@@ -2,7 +2,7 @@ from uuid import UUID
 
 from sqlalchemy import Float
 from sqlalchemy import ForeignKey
-from sqlalchemy import Index
+from sqlalchemy import Index, Integer, String
 
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
@@ -58,6 +58,20 @@ class SensorLog(
         Float,
         nullable=False,
     )
+
+    fermentation_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    phase: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="monitoring"
+    )
+    classification: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
+    @property
+    def water_content(self) -> float:
+        return self.humidity
+
+    @property
+    def delta_gas(self) -> float:
+        return self.methane
 
     sensor = relationship(
         "Sensor",

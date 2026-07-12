@@ -6,11 +6,30 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.dependencies import get_db
 from app.crud import notification as notification_crud
+from app.crud import device_token as device_token_crud
 from app.models.user import User
-from app.schemas.notification import NotificationSummaryResponse
+from app.schemas.notification import DeviceTokenRequest, NotificationSummaryResponse
 
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
+
+
+@router.post("/devices", status_code=204)
+def register_device_token(
+    data: DeviceTokenRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    device_token_crud.upsert(db, current_user.id, data.token, data.platform)
+
+
+@router.delete("/devices", status_code=204)
+def unregister_device_token(
+    data: DeviceTokenRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    device_token_crud.delete(db, current_user.id, data.token)
 
 
 @router.get("", response_model=NotificationSummaryResponse)

@@ -9,7 +9,7 @@ from app.crud.user import (
 )
 from app.crud import sensor as sensor_crud
 from app.crud import notification as notification_crud
-from app.core.enums import NotificationType
+from app.core.enums import NotificationCategory, NotificationType
 from app.schemas.admin import ApproveDeviceRequest, CreatePakarRequest
 from app.models.fermentation_cycle import FermentationCycle
 from app.models.peternakan import Peternakan
@@ -139,5 +139,6 @@ class AdminService:
             title="Perangkat berhasil dihubungkan",
             message=f"{data.nama} sekarang aktif pada silo {silo.nama}.",
             notification_type=NotificationType.INFO,
+            category=NotificationCategory.DEVICE,
         )
         return approved

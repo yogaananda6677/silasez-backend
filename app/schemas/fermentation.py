@@ -1,7 +1,8 @@
 from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.core.enums import FermentationStatus
 
@@ -9,7 +10,7 @@ from app.core.enums import FermentationStatus
 class StartFermentationRequest(BaseModel):
     # Default hari ini kalau tidak diisi (lihat FermentationService.start).
     start_date: date | None = None
-    planned_duration_days: int = Field(gt=0, le=365)
+    planned_duration_days: Literal[21] = 21
     catatan: str | None = None
 
 

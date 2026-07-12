@@ -113,11 +113,11 @@ class AIContextService:
             else {
                 "nama_sensor": self._text(latest[1].nama),
                 "suhu_celsius": latest[0].temperature,
-                "kelembapan_persen": latest[0].humidity,
+                "kadar_air_persen": latest[0].water_content,
                 "ph": latest[0].ph,
-                "metana": latest[0].methane,
-                "amonia": latest[0].ammonia,
-                "co2": latest[0].co2,
+                "delta_gas": latest[0].delta_gas,
+                "fase": latest[0].phase,
+                "klasifikasi": latest[0].classification,
                 "direkam_pada": latest[0].created_at.isoformat(),
             },
         }

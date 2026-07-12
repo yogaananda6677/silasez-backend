@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 docker/mosquitto/config/passwd
+secrets/
+*firebase-service-account*.json
+*service-account*.json
 
 # User-generated data
 uploads/*

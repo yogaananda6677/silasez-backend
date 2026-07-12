@@ -1,10 +1,37 @@
 from app.core.database import SessionLocal
-from app.core.enums import NotificationType, SensorStatus, UserRole
+from app.core.enums import (
+    NotificationCategory,
+    NotificationType,
+    SensorStatus,
+    UserRole,
+)
 from app.crud import sensor as sensor_crud
+from app.crud import fermentation_cycle as cycle_crud
 from app.crud import sensor_log as sensor_log_crud
 from app.crud import notification as notification_crud
 from app.models.user import User
 from app.websocket.manager import manager
+
+
+_CLASSIFICATION_ALIASES = {
+    "Proses Awal": "Proses Awal",
+    "Fermentasi Berlangsung": "Fermentasi Berlangsung",
+    "Fermentasi Ideal": "Fermentasi Sukses",
+    "Fermentasi Sukses": "Fermentasi Sukses",
+    "Fermentasi Perlu Diwaspadai": "Fermentasi perlu diwaspadai",
+    "Fermentasi perlu diwaspadai": "Fermentasi perlu diwaspadai",
+    "Fermentasi Gagal": "Fermentasi Gagal",
+}
+
+
+def _classification_notification(classification: str):
+    if classification == "Fermentasi Sukses":
+        return NotificationType.INFO, "Fermentasi Sukses"
+    if classification == "Fermentasi perlu diwaspadai":
+        return NotificationType.WARNING, "Fermentasi perlu diwaspadai"
+    if classification == "Fermentasi Gagal":
+        return NotificationType.DANGER, "Fermentasi Gagal"
+    return None
 
 
 def handle_message(
@@ -42,6 +69,7 @@ def handle_message(
                     title="Perangkat baru menunggu approval",
                     message=f"Device {device_id} terdeteksi dan belum terhubung ke silo.",
                     notification_type=NotificationType.INFO,
+                    category=NotificationCategory.DEVICE,
                 )
             print(f"MQTT: Device baru terdeteksi, didaftarkan sebagai PENDING -> {device_id}")
 
@@ -53,20 +81,60 @@ def handle_message(
                 )
                 return
 
+            previous = sensor_log_crud.get_latest(db, sensor.id)
+            active_cycle = cycle_crud.get_active_by_silo(db, sensor.silo_id)
+            fermentation_day = active_cycle.current_day if active_cycle else None
+            phase = "fermentation" if active_cycle and fermentation_day <= 21 else "monitoring"
+            classification = None
+
+            if phase == "fermentation":
+                classification = _CLASSIFICATION_ALIASES.get(payload.get("output"))
+            elif active_cycle is not None:
+                # Data hari ke-22 pertama menutup periode 1-21. Sensor tetap
+                # dicatat sebagai monitoring dan tidak lagi diklasifikasikan.
+                cycle_crud.finish_expired(db, active_cycle)
+                notification_crud.create(
+                    db,
+                    user_id=sensor.silo.peternakan.user_id,
+                    title="Periode fermentasi selesai",
+                    message=(
+                        f"Periode 21 hari pada silo {sensor.silo.nama} selesai. "
+                        "Data berikutnya masuk fase monitoring."
+                    ),
+                    notification_type=NotificationType.INFO,
+                    category=NotificationCategory.FERMENTATION,
+                )
+
             log = sensor_log_crud.create_log(
                 db,
                 sensor_id=sensor.id,
                 temperature=payload.get("suhu", 0),
-                humidity=payload.get("kadar_air", 0),
+                water_content=payload.get("kadar_air", 0),
                 ph=payload.get("ph", 0),
-                # TODO: MQ135 di firmware saat ini cuma kasih satu nilai gabungan
-                # (delta_gas), belum dipisah methane/ammonia/co2. Sementara
-                # disimpan di 'methane', ammonia & co2 default 0 sampai
-                # sensor gas terpisah tersedia.
-                methane=payload.get("delta_gas", 0),
-                ammonia=0,
-                co2=0,
+                delta_gas=payload.get("delta_gas", 0),
+                fermentation_day=fermentation_day,
+                phase=phase,
+                classification=classification,
             )
+
+            alert = (
+                _classification_notification(classification)
+                if classification is not None
+                else None
+            )
+            if alert and (previous is None or previous.classification != classification):
+                notification_type, title = alert
+                notification_crud.create(
+                    db,
+                    user_id=sensor.silo.peternakan.user_id,
+                    title=title,
+                    message=(
+                        f"Silo {sensor.silo.nama} pada hari ke-{fermentation_day}: "
+                        f"{classification}."
+                    ),
+                    notification_type=notification_type,
+                    category=NotificationCategory.FERMENTATION,
+                )
 
             # TODO: broadcast realtime ke frontend
             # await manager.broadcast({...})

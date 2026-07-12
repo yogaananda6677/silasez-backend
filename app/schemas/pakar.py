@@ -22,11 +22,12 @@ class LatestSensorReadingResponse(BaseModel):
     device_id: str
     sensor_nama: str
     temperature: float
-    humidity: float
+    water_content: float
     ph: float
-    methane: float
-    ammonia: float
-    co2: float
+    delta_gas: float
+    fermentation_day: int | None
+    phase: str
+    classification: str | None
     recorded_at: datetime
 
 

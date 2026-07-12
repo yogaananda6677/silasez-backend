@@ -2,7 +2,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.core.enums import NotificationType
+from app.core.enums import NotificationCategory, NotificationType
 from app.models.notification import Notification
 
 
@@ -13,17 +13,32 @@ def create(
     title: str,
     message: str,
     notification_type: NotificationType = NotificationType.INFO,
+    category: NotificationCategory = NotificationCategory.SYSTEM,
 ) -> Notification:
     item = Notification(
         user_id=user_id,
         title=title,
         message=message,
         type=notification_type,
+        category=category.value,
         is_read=False,
     )
     db.add(item)
     db.commit()
     db.refresh(item)
+    try:
+        from app.services.firebase_push_service import FirebasePushService
+
+        FirebasePushService.send_to_user(
+            db,
+            user_id,
+            title=title,
+            body=message,
+            category=category.value,
+            notification_type=notification_type.value,
+        )
+    except Exception as exc:
+        print(f"FCM dilewati: {exc}")
     return item
 
 
