@@ -12,6 +12,7 @@ def create_log(
     water_content: float,
     ph: float,
     delta_gas: float,
+    fermentation_cycle_id: UUID | None = None,
     fermentation_day: int | None = None,
     phase: str = "monitoring",
     classification: str | None = None,
@@ -19,6 +20,7 @@ def create_log(
 
     log = SensorLog(
         sensor_id=sensor_id,
+        fermentation_cycle_id=fermentation_cycle_id,
         temperature=temperature,
         humidity=water_content,
         ph=ph,
@@ -43,4 +45,16 @@ def get_latest(db: Session, sensor_id: UUID) -> SensorLog | None:
         .filter(SensorLog.sensor_id == sensor_id)
         .order_by(SensorLog.created_at.desc())
         .first()
+    )
+
+
+def has_monitoring_log_for_cycle(db: Session, cycle_id: UUID) -> bool:
+    return (
+        db.query(SensorLog.id)
+        .filter(
+            SensorLog.fermentation_cycle_id == cycle_id,
+            SensorLog.phase == "monitoring",
+        )
+        .first()
+        is not None
     )

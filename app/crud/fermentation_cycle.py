@@ -115,11 +115,3 @@ def finish(
 
     return cycle
 
-
-def finish_expired(db: Session, cycle: FermentationCycle) -> FermentationCycle:
-    """Tutup otomatis periode fermentasi tepat di akhir hari ke-21."""
-    cycle.status = FermentationStatus.COMPLETED
-    cycle.actual_end_date = cycle.end_date
-    db.commit()
-    db.refresh(cycle)
-    return cycle

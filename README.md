@@ -168,6 +168,7 @@ Semua endpoint selain root, register, login, dan WebSocket memerlukan bearer tok
 | `POST/GET` | `/peternakan/{peternakan_id}/silo` | Buat/daftar silo |
 | `GET/PATCH/DELETE` | `/silo/{silo_id}` | Detail/perbarui/hapus silo |
 | `GET` | `/silo/{silo_id}/sensor/terbaru` | Pembacaan sensor terbaru pada silo |
+| `GET` | `/silo/{silo_id}/sensor/grafik` | Grafik timeline fermentasi interaktif untuk pemilik/pakar terkait |
 | `POST` | `/silo/{silo_id}/fermentasi/mulai` | Mulai siklus fermentasi |
 | `GET` | `/silo/{silo_id}/fermentasi/aktif` | Siklus yang sedang berjalan |
 | `GET` | `/silo/{silo_id}/fermentasi` | Riwayat fermentasi |
@@ -184,6 +185,24 @@ Semua endpoint selain root, register, login, dan WebSocket memerlukan bearer tok
 | WebSocket | `/ws/chat/{room_id}` | Menerima broadcast pesan chat realtime |
 
 Format request, response, validasi, dan status code lengkap dapat dicoba langsung melalui Swagger UI.
+
+### Grafik fermentasi interaktif
+
+Endpoint grafik dapat digunakan oleh pemilik silo dan pakar yang mempunyai
+hubungan konsultasi dengan pemilik:
+
+```http
+GET /silo/{silo_id}/sensor/grafik?day_from=1&day_to=5&selected_day=3
+```
+
+- `day_from` dan `day_to` menentukan rentang grafik; default hari 1–5.
+- `selected_day` mengambil semua pembacaan pada hari yang dipilih pengguna.
+- `fermentation_cycle_id` bersifat opsional untuk membuka siklus lama; tanpa
+  parameter ini backend menggunakan siklus terbaru pada silo.
+- `timeline` selalu memuat hari 1–21 beserta penanda ketersediaan data.
+- `chart` berisi agregat rata-rata, minimum, dan maksimum per hari.
+- `selected_day_readings` berisi pembacaan mentah pada hari yang ditekan.
+- `analysis` berisi tren, ringkasan, dan saran berbasis klasifikasi perangkat.
 
 ## Alur perangkat IoT
 

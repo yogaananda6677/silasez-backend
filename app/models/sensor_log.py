@@ -29,6 +29,13 @@ class SensorLog(
         index=True,
     )
 
+    fermentation_cycle_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("fermentation_cycles.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     temperature: Mapped[float] = mapped_column(
         Float,
         nullable=False,
@@ -77,6 +84,8 @@ class SensorLog(
         "Sensor",
         back_populates="logs",
     )
+
+    fermentation_cycle = relationship("FermentationCycle")
 
 
 Index("idx_sensor_created", SensorLog.sensor_id, SensorLog.created_at)

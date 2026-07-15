@@ -89,25 +89,28 @@ def handle_message(
 
             if phase == "fermentation":
                 classification = _CLASSIFICATION_ALIASES.get(payload.get("output"))
-            elif active_cycle is not None:
-                # Data hari ke-22 pertama menutup periode 1-21. Sensor tetap
-                # dicatat sebagai monitoring dan tidak lagi diklasifikasikan.
-                cycle_crud.finish_expired(db, active_cycle)
+            elif active_cycle is not None and not sensor_log_crud.has_monitoring_log_for_cycle(
+                db, active_cycle.id
+            ):
+                # Siklus tetap RUNNING sampai peternak menutupnya manual.
+                # Alert hanya dibuat sekali saat pembacaan monitoring pertama.
                 notification_crud.create(
                     db,
                     user_id=sensor.silo.peternakan.user_id,
-                    title="Periode fermentasi selesai",
+                    title="Periode fermentasi 21 hari terlewati",
                     message=(
-                        f"Periode 21 hari pada silo {sensor.silo.nama} selesai. "
-                        "Data berikutnya masuk fase monitoring."
+                        f"Silo {sensor.silo.nama} sudah memasuki hari ke-"
+                        f"{fermentation_day}. Data masuk fase monitoring; "
+                        "tutup siklus secara manual jika proses dinyatakan selesai."
                     ),
-                    notification_type=NotificationType.INFO,
+                    notification_type=NotificationType.WARNING,
                     category=NotificationCategory.FERMENTATION,
                 )
 
             log = sensor_log_crud.create_log(
                 db,
                 sensor_id=sensor.id,
+                fermentation_cycle_id=active_cycle.id if active_cycle else None,
                 temperature=payload.get("suhu", 0),
                 water_content=payload.get("kadar_air", 0),
                 ph=payload.get("ph", 0),

@@ -1,13 +1,13 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.dependencies import get_db
 from app.models.user import User
 from app.schemas.silo import SiloCreateRequest, SiloResponse, SiloUpdateRequest
-from app.schemas.sensor import LatestSensorReadingResponse
+from app.schemas.sensor import LatestSensorReadingResponse, SensorChartResponse
 from app.services.silo_service import SiloService
 
 router = APIRouter(tags=["Silo"])
@@ -76,6 +76,34 @@ def get_latest_sensor_reading(
         return service.get_latest_sensor_reading(current_user, silo_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+
+
+@router.get(
+    "/silo/{silo_id}/sensor/grafik",
+    response_model=SensorChartResponse,
+)
+def get_sensor_chart(
+    silo_id: UUID,
+    day_from: int = Query(default=1, ge=1, le=21),
+    day_to: int = Query(default=5, ge=1, le=21),
+    selected_day: int | None = Query(default=None, ge=1, le=21),
+    fermentation_cycle_id: UUID | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        return SiloService(db).get_sensor_chart(
+            current_user,
+            silo_id,
+            day_from,
+            day_to,
+            selected_day,
+            fermentation_cycle_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e)) from e
 
