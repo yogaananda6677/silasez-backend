@@ -1,4 +1,4 @@
-"""Create an isolated 21-day SilaseZ proposal demo fixture.
+"""Create an isolated SilaseZ proposal fixture.
 
 Run inside the backend container. The command is idempotent: an existing
 fixture is reused and readings at the same cycle/day/time are updated.
@@ -37,7 +37,7 @@ class DemoReading:
     water_content: float
     ph: float
     delta_gas: float
-    output: str
+    output: str | None
 
 
 def _r(day, hour, temperature, water, ph, gas, output):
@@ -89,6 +89,15 @@ READINGS = (
     _r(21, 16, 26.8, 84.4, 4.01, 148, "Fermentasi Sukses"),
 )
 
+MONITORING_READINGS = (
+    _r(22, 8, 26.6, 84.3, 4.01, 142, None),
+    _r(22, 16, 26.9, 84.2, 4.00, 138, None),
+    _r(23, 8, 26.5, 84.1, 4.00, 134, None),
+    _r(23, 16, 26.8, 84.0, 3.99, 130, None),
+    _r(24, 8, 26.4, 83.9, 3.99, 126, None),
+    _r(24, 16, 26.7, 83.8, 3.98, 122, None),
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -97,6 +106,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fullname", default="Peternak Demo Proposal")
     parser.add_argument("--phone", default="081200002126")
     parser.add_argument("--start-date", type=date.fromisoformat, default=date(2026, 6, 22))
+    parser.add_argument("--farm-name", default="Peternakan Demo Proposal")
+    parser.add_argument("--farm-address", default="Surabaya, Jawa Timur")
+    parser.add_argument("--silo-name", default="Silo Demo Fermentasi 21 Hari")
+    parser.add_argument("--device-id", default="SIM-PROPOSAL-21D")
+    parser.add_argument("--sensor-name", default="Sensor Simulasi Proposal")
+    parser.add_argument("--sensor-type", default="simulator")
+    parser.add_argument(
+        "--include-monitoring-through",
+        type=int,
+        choices=range(21, 25),
+        default=21,
+        metavar="DAY",
+        help="Tambahkan dua pembacaan monitoring per hari sampai DAY (maksimal 24).",
+    )
     parser.add_argument("--reset-password", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
@@ -121,7 +144,7 @@ def _fixture(db: Session, args: argparse.Namespace):
 
     farm = db.query(Peternakan).filter(
         Peternakan.user_id == user.id,
-        Peternakan.nama == "Peternakan Demo Proposal",
+        Peternakan.nama == args.farm_name,
         Peternakan.is_deleted.is_(False),
     ).first()
     if farm is None:
@@ -139,8 +162,8 @@ def _fixture(db: Session, args: argparse.Namespace):
         farm = Peternakan(
             user_id=user.id,
             lokasi_id=location.id,
-            nama="Peternakan Demo Proposal",
-            alamat="Surabaya, Jawa Timur",
+            nama=args.farm_name,
+            alamat=args.farm_address,
             jenis_ternak="Sapi",
             jumlah_ternak=25,
             jenis_pakan="Silase Jagung",
@@ -150,32 +173,37 @@ def _fixture(db: Session, args: argparse.Namespace):
 
     silo = db.query(Silo).filter(
         Silo.peternakan_id == farm.id,
-        Silo.nama == "Silo Demo Fermentasi 21 Hari",
+        Silo.nama == args.silo_name,
         Silo.is_deleted.is_(False),
     ).first()
     if silo is None:
         silo = Silo(
             peternakan_id=farm.id,
-            nama="Silo Demo Fermentasi 21 Hari",
+            nama=args.silo_name,
             kapasitas=1000,
             status=SiloStatus.ACTIVE,
         )
         db.add(silo)
         db.flush()
 
-    sensor = db.query(Sensor).filter(Sensor.device_id == "SIM-PROPOSAL-21D").first()
+    sensor = db.query(Sensor).filter(Sensor.device_id == args.device_id).first()
     if sensor is None:
         sensor = Sensor(
             silo_id=silo.id,
-            device_id="SIM-PROPOSAL-21D",
-            nama="Sensor Simulasi Proposal",
-            tipe="simulator",
+            device_id=args.device_id,
+            nama=args.sensor_name,
+            tipe=args.sensor_type,
             status=SensorStatus.ACTIVE,
         )
         db.add(sensor)
         db.flush()
-    elif sensor.silo_id != silo.id:
-        raise RuntimeError("SIM-PROPOSAL-21D sudah terhubung ke silo lain.")
+    elif sensor.silo_id not in (None, silo.id):
+        raise RuntimeError(f"{args.device_id} sudah terhubung ke silo lain.")
+    else:
+        sensor.silo_id = silo.id
+        sensor.nama = args.sensor_name
+        sensor.tipe = args.sensor_type
+        sensor.status = SensorStatus.ACTIVE
 
     cycle = db.query(FermentationCycle).filter(
         FermentationCycle.silo_id == silo.id,
@@ -189,7 +217,7 @@ def _fixture(db: Session, args: argparse.Namespace):
             planned_duration_days=21,
             end_date=args.start_date + timedelta(days=20),
             status=FermentationStatus.RUNNING,
-            catatan="Data simulasi proposal: 2 pembacaan per hari selama 21 hari.",
+            catatan="Data proposal: 2 pembacaan per hari dan monitoring setelah hari ke-21.",
         )
         db.add(cycle)
         db.flush()
@@ -207,7 +235,13 @@ def inject(db: Session, args: argparse.Namespace) -> dict:
     inserted = 0
     updated = 0
 
-    for reading in READINGS:
+    readings = READINGS + tuple(
+        reading
+        for reading in MONITORING_READINGS
+        if reading.day <= args.include_monitoring_through
+    )
+
+    for reading in readings:
         recorded_at = datetime.combine(
             args.start_date + timedelta(days=reading.day - 1),
             reading.at,
@@ -226,7 +260,7 @@ def inject(db: Session, args: argparse.Namespace) -> dict:
                 created_at=recorded_at,
                 updated_at=recorded_at,
                 fermentation_day=reading.day,
-                phase="fermentation",
+                phase="fermentation" if reading.day <= 21 else "monitoring",
                 temperature=reading.temperature,
                 humidity=reading.water_content,
                 ph=reading.ph,
@@ -242,7 +276,8 @@ def inject(db: Session, args: argparse.Namespace) -> dict:
             log.humidity = reading.water_content
             log.ph = reading.ph
             log.methane = reading.delta_gas
-            log.classification = reading.output
+            log.phase = "fermentation" if reading.day <= 21 else "monitoring"
+            log.classification = reading.output if reading.day <= 21 else None
             updated += 1
 
     db.flush()
@@ -256,7 +291,8 @@ def inject(db: Session, args: argparse.Namespace) -> dict:
         "end_date": str(cycle.end_date),
         "inserted": inserted,
         "updated": updated,
-        "total": len(READINGS),
+        "monitoring_through": args.include_monitoring_through,
+        "total": len(readings),
     }
 
 
