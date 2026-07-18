@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -42,7 +43,10 @@ def create_log(
 def get_latest(db: Session, sensor_id: UUID) -> SensorLog | None:
     return (
         db.query(SensorLog)
-        .filter(SensorLog.sensor_id == sensor_id)
+        .filter(
+            SensorLog.sensor_id == sensor_id,
+            SensorLog.created_at <= datetime.now(timezone.utc),
+        )
         .order_by(SensorLog.created_at.desc())
         .first()
     )

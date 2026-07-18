@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from collections import Counter, defaultdict
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from statistics import mean
 
 from sqlalchemy.orm import Session
@@ -83,7 +83,10 @@ class SiloService:
         latest = (
             self.db.query(SensorLog, Sensor)
             .join(Sensor, SensorLog.sensor_id == Sensor.id)
-            .filter(Sensor.silo_id == silo.id)
+            .filter(
+                Sensor.silo_id == silo.id,
+                SensorLog.created_at <= datetime.now(timezone.utc),
+            )
             .order_by(SensorLog.created_at.desc())
             .first()
         )

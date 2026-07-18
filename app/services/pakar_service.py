@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -88,6 +89,7 @@ class PakarService:
             .filter(
                 Silo.peternakan_id == peternakan_id,
                 Silo.is_deleted.is_(False),
+                SensorLog.created_at <= datetime.now(timezone.utc),
             )
             .order_by(SensorLog.created_at.desc())
             .limit(sensor_limit)
@@ -242,7 +244,10 @@ class PakarService:
         return (
             self.db.query(SensorLog, Sensor)
             .join(Sensor, SensorLog.sensor_id == Sensor.id)
-            .filter(Sensor.silo_id == silo_id)
+            .filter(
+                Sensor.silo_id == silo_id,
+                SensorLog.created_at <= datetime.now(timezone.utc),
+            )
             .order_by(SensorLog.created_at.desc())
             .first()
         )
